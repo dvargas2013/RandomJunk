@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+
+import mmap
+from time import sleep
+
+with open("/tmp/hello.txt", "wb") as f:
+    f.write(b"1" * 64)
+
+try:
+    with open("/tmp/hello.txt", "r+b") as f:
+        with mmap.mmap(f.fileno(), 0) as mm:
+            while 1:
+                c = input("Type here: ")
+                s = c[:64].encode()
+                print(s)
+                l = len(s)
+                n = int(64//l)
+                L = l*n # less than 64 by construction
+                mm[:L] = s * n
+                print(mm[:])
+except: pass

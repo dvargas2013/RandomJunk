@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+from xmlrpc.client import ServerProxy
+
+import struct
+with open("/tmp/xmlrpc.prt", "rb") as f:
+    port = struct.unpack(">I",f.read())[0]
+
+print(port)
+proxy = ServerProxy("http://localhost:%s/"%port)
+while 1:
+    proxy.setData(input("Type here: "))

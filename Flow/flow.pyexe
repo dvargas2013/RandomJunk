@@ -1,0 +1,103 @@
+#!/usr/bin/env python
+
+from Tkinter import *
+_range = xrange
+
+import flowSolver 
+
+from random import random
+def randColor():
+    r = lambda: 255 * random()
+    return '#%02X%02X%02X' % (r(),r(),r())
+
+class Button(Canvas):
+    def __init__(self,parent,**kwargs):
+        Canvas.__init__(self,parent,**kwargs)
+        self.parent = parent
+        self.bind("<1>", lambda e: self.color())
+        self.resetColor()
+    def color(self): 
+        self.val = self.parent.changeColour(self.val)
+        self.configure(background=self.parent.colors[self.val])
+        self.delete(self.text)
+        if self.val: self.text = self.create_text(self.winfo_width()/2,self.winfo_height()/2,text=self.val)
+        else:        self.text = self.create_text(self.winfo_width()/2,self.winfo_height()/2,text="")
+    def resetColor(self): 
+        self.val = 0
+        self.colour = self.parent.MainColour
+        self.configure(background=self.colour)
+        try: self.delete(self.text)
+        except: pass
+        self.text = self.create_text(self.winfo_width()/2,self.winfo_height()/2,text="")
+class App(Tk):
+    def __init__(self):
+        Tk.__init__(self)
+        self.bind("<Escape>", lambda e: self.destroy())
+        self.MainColour = "gray"
+        
+        self.winMax = min(self.winfo_vrootheight(),self.winfo_vrootwidth()) /2
+        self.buttonMax = 50
+        self.buttonSize = 50
+        
+        self.w,self.h = (0,0); self.int = [[]]; self.change(5,5)
+        self.bind("<Up>", lambda e: self.change(0,-1))
+        self.bind("<Down>", lambda e: self.change(0,1))
+        self.bind("<Left>", lambda e: self.change(-1,0))
+        self.bind("<Right>", lambda e: self.change(1,0))
+        
+        self.bind("<Return>", lambda e: self.solve())
+
+        self.lift()
+        self.attributes('-topmost', True)
+
+    def addButton(self,i,j):
+        b = Button(self,width=self.buttonSize,height=self.buttonSize)
+        b.grid(column=i,row=j)
+        return b
+    def change(self,x,y):
+        self.activeSolution = False
+        self.solver = False
+        self.w += x
+        self.h += y
+        if self.w < 1: self.w = 1
+        if self.h < 1: self.h = 1
+        self.winMax = min(self.winfo_vrootheight(),self.winfo_vrootwidth()) /2
+        self.buttonSize = min(self.buttonMax, self.winMax / max(self.w,self.h) )
+        for i in self.int:
+            for j in i: j.destroy()
+        self.colors = [self.MainColour]
+        self.nums = []
+        self.int = [[self.addButton(i,j) for i in _range(self.w)] for j in _range(self.h)]
+        self.wm_title("%sx%s"%(self.w,self.h))
+    def solve(self):
+        if not self.activeSolution:
+            if self.solver:
+                self.change(0,0)
+                self.solver = False
+            else:
+                solve = [[j.val for j in i] for i in self.int]
+                print(solve)
+                self.solver = flowSolver.solve(solve)
+        if self.solver:
+            try:
+                self.activeSolution = next(self.solver)
+                for i in _range(len(self.int)):
+                    for j in _range(len(self.int[i])):
+                        self.int[i][j].configure(background=self.colors[self.activeSolution[i][j]])
+            except: self.activeSolution = False
+        if self.activeSolution: self.after(1,self.solve)
+    def changeColour(self,val):
+        if val > 0:
+            self.nums.remove(val)
+            return 0
+        else: # val == 0
+            val = 1
+            while self.nums.count(val) == 2:
+                val += 1
+        if val >= len(self.colors): self.colors.append(randColor())
+        self.nums.append(val)
+        return val
+
+if __name__ == '__main__':
+    app = App()
+    app.mainloop()

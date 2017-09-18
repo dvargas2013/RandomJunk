@@ -1,0 +1,66 @@
+#!/usr/local/bin/bash
+
+#Bash 3.2 doesnt allow fractional read timeouts
+function read1 { read -t .008 -n 1 -s K; read -t .01 -n 1000000 -s discard; echo $K; }
+function cls { tput cup 0 0; } # Clear the screen you have displayed
+#Technically I'm just placing the cursor at top right
+#May result in shearing
+
+# position of bubble
+let I=20
+let J=20
+
+#TODO Find a way to set the size rather than query the size
+#TODO use a maze.bmp to make a maze
+#TODO use code previously written to make maze in the first place
+
+function print { #Display the screen you want to display
+	let rows=$(tput lines)-1
+	let cols=$(tput cols)
+	hoho=""
+	for ((i=0;i<rows;i++)); do
+	for ((j=0;j<cols;j++)); do
+		if [ "$i" -eq "$I" -a "$j" -eq "$J" ]; then
+			add="O"
+		else
+			add="+"
+		fi
+		hoho="${hoho}${add}"
+	done
+	done
+	cls
+	printf $hoho
+}
+
+# wsad keys active
+function input {
+	a=$(read1)
+	case $a in
+	w)
+		let I=$I-1
+		if [ $I -lt 0 ]; then let I=0; fi
+		;;
+	s)
+		let I=$I+1
+		if [ $I -eq $rows ]; then let I=$rows-1; fi
+		;;
+	d)
+		let J=$J+1
+		if [ $J -eq $cols ]; then let J=$cols-1; fi
+		;;
+	a)
+		let J=$J-1
+		if [ $J -lt 0 ]; then let J=0; fi
+		;;
+	esac
+}
+
+stty -echo #turn off keystroke echoing
+
+# game loop
+while true; do
+	print
+	input
+done
+
+stty echo #turn keystroke echoing back on

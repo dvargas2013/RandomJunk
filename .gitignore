@@ -1,5 +1,8 @@
 .DS_Store
 
+# no extension
+!*.*
+
 # python bins
 __pycache__/
 *.py[ocd]
