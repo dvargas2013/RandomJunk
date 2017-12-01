@@ -1,4 +1,6 @@
 #!/usr/bin/env python2.6
+# pyautogui can do these things
+
 import Quartz.CoreGraphics as CG
 
 def mouseEventLeft(kind, posx, posy):
