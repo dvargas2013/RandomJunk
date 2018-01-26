@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-_range = xrange
+import heapq
 
 class State():
     def setTips(self):
@@ -8,23 +8,26 @@ class State():
             for j,val in enumerate(lis):
                 if val: self.tips[(i,j)] = val
         self.N = max(self.tips.values())
+    def setData(self, source):
+        self.data = source
+        self.I, self.J = len(self.data), len(self.data[0])
     def __init__(self, source):
         if type(source) == type(self):
-            self.data = [[cv for cv in lis] for lis in source.data] # Stores the original data representation basically
+            self.setData([[cv for cv in lis] for lis in source.data]) # Stores the original data representation basically
             self.tips = source.tips.copy() # Stores where beginning of every color is (there are 2 or 0 of each color)
             self.moves = source.moves # Moves[][] you can make grouped by the keys() in tips. Basically the moves from each neighbothood around the tip
             self.score = source.score # Save the score so you don't have to recompute every time. Just in case
             self.N = source.N # The maximum color number index thing. For __str__ purposes
         elif type(source) == list:
-            self.data = source
+            self.setData(source) # data and I and J
             self.setTips() # tips and N
             self.setstate() # moves and score
     def neighbors(self, i, j):
         for ii,jj in [(0,1),(1,0),(-1,0),(0,-1)]:
-            if 0 <= i+ii and i+ii < len(self.data):
-                if 0 <= j+jj and j+jj < len(self.data[i+ii]):
+            if 0 <= i+ii and i+ii < self.I:
+                if 0 <= j+jj and j+jj < self.J:
                     yield self.data[i+ii][j+jj],i+ii,j+jj
-    def getMoves(self):
+    def generateAllMoves(self):
         if not self.moves:
             self.moves = []
             for ij,c in self.tips.items():
@@ -32,16 +35,15 @@ class State():
                 for cv,ii,jj in self.neighbors(*ij):
                     if cv == 0 or ( cv == c and (ii,jj) in self.tips.keys() ):
                         cneigh.append( (c,ij,ii,jj) )
-                        yield (c,ij,ii,jj)
                 if cneigh: self.moves.append( cneigh )
-                else:
+                else: # if tip has no neighborhood, invalid
                     self.score = -1
                     return
-        else:
-            for cneigh in self.moves:
-                for cijij in cneigh: yield cijij
+    def getMoves(self):
+        self.generateAllMoves()
+        return min(self.moves, key = lambda x: len(x))
     def forcestate(self):
-        if not self.moves: list(self.getMoves())
+        self.generateAllMoves()
         for cneigh in list(self.moves):
             if len(cneigh) == 1: # If there is only 1 move for that color neighborhood
                 self.rawmove(cneigh[0])
@@ -58,10 +60,11 @@ class State():
         self.moves = False
         self.score = 0
         try:
-            while self.score != -1 and not self.moves:
+            # Keep trying to make forced moves
+            while not (self.score == -1 or self.moves): # unless invalid position or there are no forced moves
                 if len(self.tips) == 0: return # Bruh you just won the game
                 self.forcestate()
-        except KeyError: self.score = -1
+        except KeyError: self.score = -1 # Error happens if a tip gets stuck
     def makeMove(self,cijij):
         self.rawmove(cijij)
         self.setstate()
@@ -89,7 +92,7 @@ class State():
                     if not region: # Not in any previous regions
                         region = self.floodfill((ii,jj)) 
                         regions.append( region ) # New region yay
-                        region = (len(regions)-1, region)
+                        region = (len(regions)-1, region) 
                     sec,reg = region
                     c2ijs[c] = c2ijs.get(c,set()).union(set([ij]))
                     ij2sec[ij] = ij2sec.get(ij,set()).union(set([sec]))
@@ -105,14 +108,23 @@ class State():
         if any(any( cv == 0 and (i,j) not in reg for j,cv in enumerate(lis) ) for i,lis in enumerate(self.data)):
             return False # If there is any 0-point that isn't part of the filled regions
         return True
+    def deadEndCondition(self,i,j):
+        return self.data[i][j] == 0 or self.tips.get((i,j),False)
+    def deadEndCheck(self):
+        for i,lis in enumerate(self.data):
+            for j,cv in enumerate(lis):
+                if cv == 0:
+                    if sum(self.deadEndCondition(*cviijj[1:]) for cviijj in self.neighbors(i,j)) < 2:
+                        return False # count the empty surroundings and tips
+        return True
     def getScore(self):
         if self.score: return self.score
-        if not self.moves: list(self.getMoves())
-        sc1 = sum(len(cneigh) for cneigh in self.moves)
-        sc2 = sum(sum(cv==0 for cv in lis) for lis in self.data)
+        self.generateAllMoves()
+        sc1 = sum(len(cneigh) for cneigh in self.moves) # how many neighbors from tips
+        sc2 = sum(sum(cv==0 for cv in lis) for lis in self.data) # how many empty cells 
         if sc1 == 0 and sc2 == 0: return 0
-        if sc1>0 and sc2>0 and self.connectivityCheck():
-            self.score = sc1+sc2
+        if sc1>0 and sc2>0 and self.deadEndCheck() and self.connectivityCheck():
+            self.score = self.I*self.J*sc1+2*self.N*sc2
             return self.score
         else: self.score = -1
         return self.score
@@ -120,7 +132,7 @@ class State():
         stk = set(self.tips.keys())
         l = len(str(self.N))+1
         form = "{0:^%s}"%l
-        return '\n'.join( ' '.join(form.format(str(cv)+("*" if (i,j) in stk else "")) for j,cv in enumerate(lis)) for i,lis in enumerate(self.data) )
+        return '\n'.join( ' '.join(form.format((("%s"%cv) if cv else ".")+("*" if (i,j) in stk else " ")) for j,cv in enumerate(lis)) for i,lis in enumerate(self.data) )
 
 '''
 As Long as State Can:
@@ -139,20 +151,22 @@ Note:
 def solve(state):
     states = [] # Make a list of all states so far
     state = State(state)
-    while state.getScore() != 0:
+    while state.getScore() != 0: # score of 0 is the win condition
         yield state.copy().data
-        for move in state.getMoves():
+        for move in state.getMoves(): # go through the moves in order
             scopy = state.copy()
-            scopy.makeMove(move)
-            if scopy.getScore() >= 0: states.append(scopy)
-        states = sorted( states, key = lambda x: x.getScore() ) # Sort so that lowest score is first
-        state = states.pop(0) # Grab closest state to end
+            scopy.makeMove(move) # make copy and make move
+            score = scopy.getScore()
+            if score >= 0: heapq.heappush(states, (score, scopy)) # if its valid insert it into the queue
+        state = heapq.heappop(states)[1] # Grab closest state to end
     yield state.data
 
 if __name__ == '__main__':
     ar = [[1, 0, 0, 0, 0, 0, 0, 2], [0, 0, 0, 0, 0, 0, 0, 0], [0, 5, 0, 0, 0, 0, 5, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 4, 0, 0, 0, 0, 4], [0, 0, 0, 0, 0, 0, 0, 0], [0, 3, 0, 0, 0, 0, 3, 0], [1, 2, 0, 0, 0, 0, 0, 0]]
-    # for state in solve(ar):
+    # for state in solve(ar): # iterate through the sub-?solve? states being generated
     #     print(state)
     #     print("")
     s = State(ar)
-    print(s.connectivityCheck())
+    print(s)
+    print list(solve(s))[-1]
+    
