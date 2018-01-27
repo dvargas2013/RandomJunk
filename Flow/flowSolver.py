@@ -84,6 +84,7 @@ class State():
         regions = []
         c2ijs = dict()
         ij2sec = dict()
+        sec2cs = dict()
         for ij,c in self.tips.items():
             for cv,ii,jj in self.neighbors(*ij):
                 if cv == 0:
@@ -96,17 +97,21 @@ class State():
                     sec,reg = region
                     c2ijs[c] = c2ijs.get(c,set()).union(set([ij]))
                     ij2sec[ij] = ij2sec.get(ij,set()).union(set([sec]))
+                    sec2cs[sec] = sec2cs.get(sec,set()).union(set([c]))
         for c,ijs in c2ijs.items():
             if len(ijs) != 2: return False
             ij1, ij2 = ijs
             if len( ij2sec[ij1].intersection(ij2sec[ij2]) ) == 0:
                 # Make sure that each pair of tips are capable of connecting
                 return False
-        reg = regions.pop(0)
+                
+        # if a region doesnt have a color pair, nothing leaves once it goes into it
+        if not all(sec2cs.get(sec,False) for sec in xrange(len(regions))): return False
+        
+        reg = regions.pop(0) # union all the found regions
         for region in regions: reg = reg.union(region)
         
-        if any(any( cv == 0 and (i,j) not in reg for j,cv in enumerate(lis) ) for i,lis in enumerate(self.data)):
-            return False # If there is any 0-point that isn't part of the filled regions
+        if any(any( cv == 0 and (i,j) not in reg for j,cv in enumerate(lis) ) for i,lis in enumerate(self.data)): return False # If there is any 0-point that isn't part of a filled region
         return True
     def deadEndCondition(self,i,j):
         return self.data[i][j] == 0 or self.tips.get((i,j),False)
@@ -152,14 +157,15 @@ def solve(state):
     states = [] # Make a list of all states so far
     state = State(state)
     while state.getScore() != 0: # score of 0 is the win condition
-        yield state.copy().data
-        for move in state.getMoves(): # go through the moves in order
+        moves = state.getMoves()
+        yield state.copy()
+        for move in moves: # go through the moves in order
             scopy = state.copy()
             scopy.makeMove(move) # make copy and make move
             score = scopy.getScore()
             if score >= 0: heapq.heappush(states, (score, scopy)) # if its valid insert it into the queue
         state = heapq.heappop(states)[1] # Grab closest state to end
-    yield state.data
+    yield state
 
 if __name__ == '__main__':
     ar = [[1, 0, 0, 0, 0, 0, 0, 2], [0, 0, 0, 0, 0, 0, 0, 0], [0, 5, 0, 0, 0, 0, 5, 0], [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 4, 0, 0, 0, 0, 4], [0, 0, 0, 0, 0, 0, 0, 0], [0, 3, 0, 0, 0, 0, 3, 0], [1, 2, 0, 0, 0, 0, 0, 0]]
@@ -168,5 +174,5 @@ if __name__ == '__main__':
     #     print("")
     s = State(ar)
     print(s)
-    print list(solve(s))[-1]
+    s.connectivityCheck()
     

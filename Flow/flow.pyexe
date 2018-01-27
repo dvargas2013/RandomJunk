@@ -9,7 +9,15 @@ from random import random
 def randColor():
     r = lambda: 255 * random()
     return '#%02X%02X%02X' % (r(),r(),r())
-
+def nextN(itr,n=5):
+    "Skips n-1 iterations and returns the nth one"
+    for i in _range(n):
+        try:
+            o = next(itr)
+            a=o
+        except StopIteration as e: pass
+    try: return a
+    except UnboundLocalError as e: raise StopIteration() 
 class Button(Canvas):
     def __init__(self,parent,**kwargs):
         Canvas.__init__(self,parent,**kwargs)
@@ -19,16 +27,15 @@ class Button(Canvas):
     def color(self): 
         self.val = self.parent.changeColour(self.val)
         self.configure(background=self.parent.colors[self.val])
-        self.delete(self.text)
-        if self.val: self.text = self.create_text(self.winfo_width()/2,self.winfo_height()/2,text=self.val)
-        else:        self.text = self.create_text(self.winfo_width()/2,self.winfo_height()/2,text="")
+        self.setText(self.val if self.val else "")
     def resetColor(self): 
         self.val = 0
         self.colour = self.parent.MainColour
         self.configure(background=self.colour)
-        try: self.delete(self.text)
-        except: pass
-        self.text = self.create_text(self.winfo_width()/2,self.winfo_height()/2,text="")
+        self.text = self.create_text(self.parent.buttonSize/2,self.parent.buttonSize/2,text="")
+    def getText(self): return self.itemcget(self.text,'text')
+    def setText(self,s): self.itemconfigure(self.text,text=s)
+
 class App(Tk):
     def __init__(self):
         Tk.__init__(self)
@@ -38,13 +45,14 @@ class App(Tk):
         self.winMax = min(self.winfo_vrootheight(),self.winfo_vrootwidth()) /2
         self.buttonMax = 50
         self.buttonSize = 50
+        self.loops = 1
         
         self.w,self.h = (0,0); self.int = [[]]; self.change(5,5)
         self.bind("<Up>", lambda e: self.change(0,-1))
         self.bind("<Down>", lambda e: self.change(0,1))
         self.bind("<Left>", lambda e: self.change(-1,0))
         self.bind("<Right>", lambda e: self.change(1,0))
-        
+        self.bind("<space>", lambda e: self.solve(pause=1))
         self.bind("<Return>", lambda e: self.solve())
 
         self.lift()
@@ -69,7 +77,10 @@ class App(Tk):
         self.nums = []
         self.int = [[self.addButton(i,j) for i in _range(self.w)] for j in _range(self.h)]
         self.wm_title("%sx%s"%(self.w,self.h))
-    def solve(self):
+    def solve(self,pause=0):
+        if pause:
+            self.loops = 1 if self.loops < 0 else -1
+            if self.loops < 0: return
         if not self.activeSolution:
             if self.solver:
                 self.change(0,0)
@@ -80,12 +91,21 @@ class App(Tk):
                 self.solver = flowSolver.solve(solve)
         if self.solver:
             try:
-                self.activeSolution = next(self.solver)
+                self.activeSolution = nextN(self.solver,n=self.w*self.h)
                 for i in _range(len(self.int)):
                     for j in _range(len(self.int[i])):
-                        self.int[i][j].configure(background=self.colors[self.activeSolution[i][j]])
+                        but = self.int[i][j]
+                        but.configure(background=self.colors[self.activeSolution.data[i][j]])
+                        if but.getText() == "X": but.setText("")
+                for i,j in self.activeSolution.tips.keys():
+                    but = self.int[i][j]
+                    if but.getText() == "": but.setText("X")
             except: self.activeSolution = False
-        if self.activeSolution: self.after(1,self.solve)
+        if self.loops < 0:
+            if self.activeSolution:
+                print(self.activeSolution)
+                print("")
+        elif self.activeSolution: self.after(1,self.solve)
     def changeColour(self,val):
         if val > 0:
             self.nums.remove(val)
