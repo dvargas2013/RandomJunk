@@ -113,14 +113,17 @@ class State():
         
         if any(any( cv == 0 and (i,j) not in reg for j,cv in enumerate(lis) ) for i,lis in enumerate(self.data)): return False # If there is any 0-point that isn't part of a filled region
         return True
-    def deadEndCondition(self,i,j):
-        return self.data[i][j] == 0 or self.tips.get((i,j),False)
-    def deadEndCheck(self):
+    def deadEndCondition(self,i,j): return self.data[i][j] == 0 or self.tips.get((i,j),False)
+    def twoByTwoCondition(self,i,j):
+        if i+1 == self.I or j+1 == self.J: return True
+        return self.data[i][j] == self.data[i+1][j] == self.data[i][j+1] == self.data[i+1][j+1]
+    def deadEndAndTwoByTwoCheck(self):
         for i,lis in enumerate(self.data):
             for j,cv in enumerate(lis):
                 if cv == 0:
                     if sum(self.deadEndCondition(*cviijj[1:]) for cviijj in self.neighbors(i,j)) < 2:
                         return False # count the empty surroundings and tips
+                elif self.twoByTwoCondition(i,j): return False
         return True
     def getScore(self):
         if self.score: return self.score
@@ -128,7 +131,7 @@ class State():
         sc1 = sum(len(cneigh) for cneigh in self.moves) # how many neighbors from tips
         sc2 = sum(sum(cv==0 for cv in lis) for lis in self.data) # how many empty cells 
         if sc1 == 0 and sc2 == 0: return 0
-        if sc1>0 and sc2>0 and self.deadEndCheck() and self.connectivityCheck():
+        if sc1>0 and sc2>0 and self.deadEndAndTwoByTwoCheck() and self.connectivityCheck():
             self.score = self.I*self.J*sc1+2*self.N*sc2
             return self.score
         else: self.score = -1
@@ -174,5 +177,3 @@ if __name__ == '__main__':
     #     print("")
     s = State(ar)
     print(s)
-    s.connectivityCheck()
-    
