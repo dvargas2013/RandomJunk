@@ -97,14 +97,15 @@ class State():
                     sec,reg = region
                     c2ijs[c] = c2ijs.get(c,set()).union(set([ij]))
                     ij2sec[ij] = ij2sec.get(ij,set()).union(set([sec]))
-                    sec2cs[sec] = sec2cs.get(sec,set()).union(set([c]))
         for c,ijs in c2ijs.items():
             if len(ijs) != 2: return False
             ij1, ij2 = ijs
-            if len( ij2sec[ij1].intersection(ij2sec[ij2]) ) == 0:
-                # Make sure that each pair of tips are capable of connecting
-                return False
-                
+            # TODO accumulate sec2cs union of all intersections
+            inter = ij2sec[ij1].intersection(ij2sec[ij2])
+            if len( inter ) == 0: return False # Make sure that each pair of tips are capable of connecting
+            else:
+                for sec in inter: sec2cs[sec] = sec2cs.get(sec,set()).union(set([c]))
+        
         # if a region doesnt have a color pair, nothing leaves once it goes into it
         if not all(sec2cs.get(sec,False) for sec in xrange(len(regions))): return False
         
@@ -115,7 +116,7 @@ class State():
         return True
     def deadEndCondition(self,i,j): return self.data[i][j] == 0 or self.tips.get((i,j),False)
     def twoByTwoCondition(self,i,j):
-        if i+1 == self.I or j+1 == self.J: return True
+        if i+1 == self.I or j+1 == self.J: return False
         return self.data[i][j] == self.data[i+1][j] == self.data[i][j+1] == self.data[i+1][j+1]
     def deadEndAndTwoByTwoCheck(self):
         for i,lis in enumerate(self.data):
@@ -177,3 +178,4 @@ if __name__ == '__main__':
     #     print("")
     s = State(ar)
     print(s)
+    print(s.getScore())
